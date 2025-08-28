@@ -1,4 +1,4 @@
-# Omeka Classic Digital Ocean Manual Installation Tutorial
+# Omeka Classic Manual Installation Tutorial
 
 This repository contains a step-by-step guide for installing [Omeka Classic](https://omeka.org/classic/) on a [DigitalOcean Droplet](https://www.digitalocean.com/).  
 It is written with **students, scholars, and cultural heritage professionals** in mind — people who are experts in their own fields but may not have much technical background.  
@@ -68,37 +68,88 @@ See: [Omeka Classic Installation Docs](https://omeka.org/classic/docs/Installati
 
 ## Step 1: Create the Droplet (your small cloud server)
 
-*(same as Omeka S tutorial)*  
+1. In the [DigitalOcean control panel](https://docs.digitalocean.com/products/droplets/how-to/create/), click **Create → Droplet**.
+2. Choose **Ubuntu 24.04 LTS**.
+3. Pick the $6/month plan (enough to start).
+4. Choose a datacenter region close to you.
+5. Select **Password** login for simplicity.
+6. Name it `omeka-classic-server` and click **Create Droplet**.
+
+**Why.** A Droplet is just a virtual computer. It will run Omeka Classic and serve your site to the world.
 
 ---
 
 ## Step 2: Connect to the Server with SSH
 
-*(same as Omeka S tutorial, with terminal explanation)*  
+On your computer, you need a way to send commands to the server. This is done through something called the **terminal**:
+
+- **Mac:** Open the **Terminal** application (search for "Terminal" in Spotlight).  
+- **Linux:** Use your built-in Terminal application.  
+- **Windows:** Open **PowerShell** (search for it in the Start menu).  
+
+Now connect to your server using **SSH (Secure Shell)**. Replace `YOUR_SERVER_IP` with the IP address of your Droplet:
+
+```bash
+ssh root@YOUR_SERVER_IP
+```
+
+Enter the password you chose when creating the Droplet.
+
+**Why.** The terminal is a text-based way to talk to computers. SSH is the safe, standard way to control a remote server.
 
 ---
 
-## Step 3: Create a Safe Admin User
+## Step 3: Create a Safe Admin User (recommended)
 
-*(same as Omeka S tutorial)*  
+```bash
+adduser sammy
+usermod -aG sudo sammy
+```
+
+Then log back in as that user:
+
+```bash
+exit
+ssh sammy@YOUR_SERVER_IP
+```
+
+**Why.** It’s safer to work as a regular user with “sudo” powers, rather than root.
 
 ---
 
 ## Step 4: Turn on a Simple Firewall
 
-*(same as Omeka S tutorial)*  
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow "Apache Full"
+sudo ufw enable
+```
+
+**Why.** A firewall blocks unwanted traffic while allowing web (Apache) and SSH access.
 
 ---
 
 ## Step 5: Update the System
 
-*(same as Omeka S tutorial)*  
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+**Why.** Updates bring in the latest security patches and fixes.
 
 ---
 
 ## Step 6: Install Apache (the Web Server)
 
-*(same as Omeka S tutorial)*  
+```bash
+sudo apt install -y apache2
+sudo systemctl enable --now apache2
+```
+
+Check in your browser: `http://YOUR_SERVER_IP` should show the Apache default page.
+
+**Why.** Apache serves web pages to visitors.
 
 ---
 
@@ -127,7 +178,18 @@ The `add-apt-repository` command adds a trusted software source so Ubuntu can in
 
 ## Step 8: Install MySQL (the Database)
 
-*(same as Omeka S tutorial, but DB can be named `omeka` instead of `omeka_s`)*  
+```bash
+sudo apt install -y mysql-server
+sudo systemctl enable --now mysql
+```
+
+Enter MySQL:
+
+```bash
+sudo mysql
+```
+
+Create a database and user:
 
 ```sql
 CREATE DATABASE omeka;
@@ -178,6 +240,8 @@ password = "STRONG_PASSWORD"
 dbname   = "omeka"
 ```
 
+**Why.** This tells Omeka Classic where to find the database you just created.
+
 ---
 
 ## Step 11: Allow Apache to Write Where It Needs To
@@ -190,9 +254,40 @@ sudo chown -R www-data:www-data /var/www/omeka
 
 ---
 
-## Step 12: Make Apache Serve Omeka Classic from Your IP or Domain
+## Step 12: Configure Apache for Omeka Classic
 
-*(same as Omeka S tutorial, but point DocumentRoot to `/var/www/omeka`)*  
+Create a site configuration:
+
+```bash
+sudo nano /etc/apache2/sites-available/omeka.conf
+```
+
+Paste:
+
+```
+<VirtualHost *:80>
+    ServerName YOUR_DOMAIN_OR_IP
+    DocumentRoot /var/www/omeka
+
+    <Directory /var/www/omeka>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/omeka_error.log
+    CustomLog ${APACHE_LOG_DIR}/omeka_access.log combined
+</VirtualHost>
+```
+
+Enable the site:
+
+```bash
+sudo a2ensite omeka.conf
+sudo a2dissite 000-default.conf
+sudo systemctl reload apache2
+```
+
+**Why.** This tells Apache where to find your Omeka Classic site and allows `.htaccess` files to control routing.
 
 ---
 
@@ -209,11 +304,21 @@ Fill in:
 - Email  
 - Site title  
 
+**Why.** This step initializes Omeka Classic, sets up the database tables, and creates your first admin user.
+
 ---
 
 ## Step 14: Optional: Use a Real Domain and HTTPS
 
-*(same as Omeka S tutorial)*  
+- [Point your domain to DigitalOcean DNS](https://docs.digitalocean.com/products/networking/dns/getting-started/dns-registrars/).  
+- Install free HTTPS certificates with Let’s Encrypt:
+
+```bash
+sudo apt install -y certbot python3-certbot-apache
+sudo certbot --apache -d yourdomain.org -d www.yourdomain.org
+```
+
+**Why.** HTTPS makes your site secure and professional.
 
 ---
 
